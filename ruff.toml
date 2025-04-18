@@ -1,0 +1,14 @@
+fix = true
+preview = true
+
+[lint]
+extend-select = [
+    "I",  # isort
+    "RUF",  # ruff specific, generally helpful
+    "UP", "FURB", "FLY", "PTH",  # use newest idioms
+    "N", "A",  # names
+    "SIM", "RET", "PIE",  # simplification stuff
+    "T20",  # all output should use rich
+    "B",  # probably a bug
+    # TODO: "ERA",  # remove comments
+]
