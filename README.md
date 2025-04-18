@@ -1,5 +1,15 @@
 Browse Georgia Tech's course listings as a database.
 
+### Using the database
+
+You can download an initial database from the GitHub release tab, or use the script in `init` mode. Then you can update the data for any given term in `update` mode.
+
+If the database is at `classes.db`, it is an SQLite database and you can use any tools that work on SQLite databases on it. For instance, starting in Python 3.12 this will spin up a terminal for queries:
+
+```
+$ python -m sqlite3 classes.db
+```
+
 ### Set up
 
 Use a virtual environment, please!
