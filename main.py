@@ -26,7 +26,13 @@ def remove_escaping(thing):
     if thing is None:
         return thing
 
-    return thing.replace("&#39;", "'").replace("&amp;", "&")
+    return (
+        thing.replace("&#39;", "'")
+        .replace("&nbsp", " ")
+        .replace("&rsquo;", "'")  # this should maybe be the special quote?
+        .replace("&quot;", '"')
+        .replace("&amp;", "&")
+    )
 
 
 @dataclass
@@ -44,7 +50,7 @@ def convert_faculty(faculty, term):
     return Faculty(
         banner_id=int(faculty["bannerId"]),
         display_name=remove_escaping(faculty["displayName"]),
-        email_address=faculty["emailAddress"],
+        email_address=remove_escaping(faculty["emailAddress"]),
         term=term,
     )
 
@@ -79,7 +85,9 @@ def convert_meeting(meeting):
 
     return Meeting(
         building=meeting["meetingTime"]["building"],
-        building_description=meeting["meetingTime"]["buildingDescription"],
+        building_description=remove_escaping(
+            meeting["meetingTime"]["buildingDescription"]
+        ),
         campus=meeting["meetingTime"]["campus"],
         campus_description=remove_escaping(meeting["meetingTime"]["campusDescription"]),
         begin_time=meeting["meetingTime"]["beginTime"],
@@ -122,8 +130,8 @@ class Meeting:
     hours_week: float | None
     room: str | None
     meeting_schedule_type: str
-    meeting_type: str | None  # when isn't this "CLAS"
-    meeting_type_description: str | None  # see above
+    meeting_type: str | None
+    meeting_type_description: str | None
     category: str  # ??
 
     monday: bool
@@ -139,7 +147,8 @@ def convert_section_attribute(section_attribute):
     assert not section_attribute["isZTCAttribute"]
 
     return SectionAttribute(
-        code=section_attribute["code"], description=section_attribute["description"]
+        code=section_attribute["code"],
+        description=remove_escaping(section_attribute["description"]),
     )
 
 
@@ -180,13 +189,13 @@ def convert_course(course, term):
     return Course(
         college=course["college"],
         college_code=course["collegeCode"],
-        description=course["courseDescription"],
+        description=remove_escaping(course["courseDescription"]),
         number=course["courseNumber"],
-        title=course["courseTitle"],
+        title=remove_escaping(course["courseTitle"]),
         department=course["department"],
         department_code=course["departmentCode"],
         subject=course["subject"],
-        subject_description=course["subjectDescription"],
+        subject_description=remove_escaping(course["subjectDescription"]),
         term_start=course["termStart"],
         term_end=course["termEnd"],
         term=term,
@@ -196,7 +205,12 @@ def convert_course(course, term):
 @dataclass
 class Course:
     metadata: typing.ClassVar = Metadata(
-        ("subject", "number", "term"), extract=[("subject", ("subject_description",))]
+        ("subject", "number", "term"),
+        extract=[
+            ("subject", ("subject_description",)),
+            ("college", ("college_code",)),
+            ("department_code", ("department",)),
+        ],
     )
 
     college: str
@@ -256,7 +270,7 @@ def convert_section(section):
         term_description=section["termDesc"],
         crosslist_capacity=section["crossListCapacity"],
         crosslist_count=section["crossListCount"],
-        campus_description=section["campusDescription"],
+        campus_description=remove_escaping(section["campusDescription"]),
         open_section=section["openSection"],
         part_of_term=section["partOfTerm"],
         is_section_linked=section["isSectionLinked"],
@@ -509,7 +523,12 @@ async def get_linked_sections(client, progress, term, task, chan):
 
 
 async def get_data(term):
-    async with httpx.AsyncClient(timeout=120) as client:
+    async with httpx.AsyncClient(
+        timeout=120,
+        headers={
+            "User-Agent": "Mozilla/5.0 (compatible; classes/1.0; +https://github.com/horo-fox/classes)"
+        },
+    ) as client:
         await setup_cookies(client)
 
         terms = await get_terms(client)
@@ -575,7 +594,7 @@ async def get_data(term):
 
 
 def init(args):
-    trio.run(get_data, "202508")
+    trio.run(get_data, None)
 
 
 def update(args):
@@ -743,6 +762,7 @@ def type_to_sql(t):
 
 
 def python_to_sql_value(val):
+    # all this could *probably* just use prepared statements...
     if val is None:
         return "NULL"
     if isinstance(val, bool):
@@ -753,6 +773,8 @@ def python_to_sql_value(val):
         raise AssertionError("unexpected list")
     if is_dataclass(val):
         raise AssertionError("unexpected dataclass")
+    if isinstance(val, str):
+        return "'" + val.replace("'", "''") + "'"
     return repr(val)
 
 
